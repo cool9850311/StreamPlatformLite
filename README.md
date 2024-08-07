@@ -5,5 +5,5 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 [link](https://github.com/cool9850311/StreamPlatformLite-Frontend)
 
 ## Backend
-[link](https://github.com/cool9850311/StreamPlatformLite-Frontend)
+[link](https://github.com/cool9850311/StreamPlatformLite-Backend)
 
