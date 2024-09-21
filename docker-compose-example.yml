@@ -41,6 +41,7 @@ services:
       FRONTEND_PORT: 3000
       REDIS_URI: redis:6379
       HTTPS: "true"
+      ENABLE_GIN_LOG: "false"
   frontend:
     build:
       context: ../StreamPlatformLite-Frontend
