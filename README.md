@@ -29,6 +29,8 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 
 4. Update the environment variables in `docker-compose.yml` and `nginx.conf` as needed.
 
+5. replace cert & key file in certs folder with your own.
+
 ### Running the Application
 
 1. Start the services using Docker Compose:
@@ -45,7 +47,7 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
     docker-compose down
     ```
 
-For more detailed information, refer to the individual repository links provided above.
+For more detailed information, refer to the individual repository links provided below.
 
 ## Frontend
 [link](https://github.com/cool9850311/StreamPlatformLite-Frontend)
