@@ -33,13 +33,15 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 
 1. Start the services using Docker Compose:
     ```sh
-    docker-compose up -d
+    # docker-compose or docker compose based on your docker compose version
+    docker-compose up -d --build
     ```
 
 ### Stopping the Application
 
 1. To stop the services, run:
     ```sh
+    # docker-compose or docker compose based on your docker compose version
     docker-compose down
     ```
 
