@@ -50,7 +50,7 @@ services:
     environment:
       - NODE_ENV=production
       - BACKEND_URL=https://example.com/api
-      - DISCORD_URL=YOUR_Discord_URL
+      - DISCORD_URL=YOUR_DISCORD_URL
   nginx:
     image: nginx:latest
     restart: always
