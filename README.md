@@ -27,7 +27,7 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
     cp nginx.conf.example nginx.conf
     ```
 
-4. Update the environment variables in `docker-compose.yml` and `nginx.conf` as needed.
+4. Update the environment variables in `docker-compose.yml` and `nginx.conf` as needed. (See [Configuration - docker-compose](https://github.com/cool9850311/StreamPlatformLite/wiki/Configuration-%E2%80%90-docker-compose))
 
 5. replace cert & key file in certs folder with your own.
 
