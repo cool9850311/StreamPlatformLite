@@ -50,8 +50,8 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - BACKEND_URL=https://example.com/api
-      - DISCORD_URL=YOUR_DISCORD_URL
+      - NUXT_PUBLIC_BACKEND_URL=https://example.com/api
+      - NUXT_PUBLIC_DISCORD_URL=YOUR_DISCORD_URL
   nginx:
     image: nginx:latest
     restart: always
