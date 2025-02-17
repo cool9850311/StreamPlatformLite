@@ -42,6 +42,8 @@ services:
       REDIS_URI: redis:6379
       HTTPS: "true"
       ENABLE_GIN_LOG: "false"
+    volumes:
+      - hls-data:/app/hls
   frontend:
     build:
       context: ../StreamPlatformLite-Frontend
@@ -52,8 +54,7 @@ services:
       - NODE_ENV=production
       - NUXT_PUBLIC_BACKEND_URL=https://example.com/api
       - NUXT_PUBLIC_DISCORD_URL=YOUR_DISCORD_URL
-    volumes:
-      - hls-data:/app/hls
+
   nginx:
     image: nginx:latest
     restart: always
