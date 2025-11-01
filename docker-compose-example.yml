@@ -1,4 +1,7 @@
-# Use root/example as user/password credentials
+# Docker Compose Example for StreamPlatformLite with Nginx
+# Copy this file to docker-compose.yml and customize the configuration
+# See: https://github.com/cool9850311/StreamPlatformLite/wiki/Configuration-%E2%80%90-docker-compose
+
 version: '3.1'
 
 services:
@@ -22,7 +25,8 @@ services:
       dockerfile: ../StreamPlatformLite-Backend/Dockerfile
     restart: always
     ports:
-      - 8080:8080
+      # Only expose RTMP port for streaming
+      # HTTP API (8080) is only accessible through Nginx for better security
       - 1935:1935
     depends_on:
       - mongo
@@ -31,11 +35,13 @@ services:
       SERVER_PORT: 8080
       MONGODB_URI: mongodb://root:example@mongo:27017
       MONGODB_DATABASE: go_service
+      # IMPORTANT: Replace all YOUR_* placeholders with actual values
       APP_SECRET_KEY: YOUR_SECRET_KEY
       DISCORD_CLIENT_ID: YOUR_CLIENT_ID
       DISCORD_CLIENT_SECRET: YOUR_CLIENT_SECRET
       DISCORD_ADMIN_ID: YOUR_ADMIN_ID
       DISCORD_GUILD_ID: YOUR_GUILD_ID
+      # Replace example.com with your actual domain
       DOMAIN: example.com/api
       FRONTEND_DOMAIN: example.com
       FRONTEND_PORT: 3000
@@ -48,10 +54,10 @@ services:
     build:
       context: ../StreamPlatformLite-Frontend
       dockerfile: ../StreamPlatformLite-Frontend/Dockerfile
-    ports:
-      - "3000:3000"
+    restart: always
     environment:
       - NODE_ENV=production
+      # Replace example.com with your actual domain
       - NUXT_PUBLIC_BACKEND_URL=https://example.com/api
       - NUXT_PUBLIC_DISCORD_URL=YOUR_DISCORD_URL
 
@@ -59,17 +65,19 @@ services:
     image: nginx:latest
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:80"    # HTTP (redirects to HTTPS)
+      - "443:443"  # HTTPS
     volumes:
+      # Mount Nginx configuration file (copy from nginx.conf.example)
       - ./nginx.conf:/etc/nginx/nginx.conf
+      # Mount SSL certificates directory (place your .crt and .key files here)
       - ./certs:/etc/nginx/certs
     depends_on:
       - go-service
       - frontend
 
 volumes:
+  # MongoDB persistent data storage
   mongo-data:
-  # Add a volume for Nginx certificates
-  certs:
+  # HLS streaming data storage (for live streaming)
   hls-data:

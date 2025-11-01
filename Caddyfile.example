@@ -1,0 +1,82 @@
+# Caddyfile Example for StreamPlatformLite
+# Copy this file to 'Caddyfile' and replace 'example.com' with your actual domain
+
+# Replace 'example.com' with your domain name
+example.com {
+    # Automatically obtain and renew SSL certificates from Let's Encrypt
+    # No manual certificate management needed!
+
+    # Enable access logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+
+    # Enable compression
+    encode gzip zstd
+
+    # Reverse proxy for API requests (with URL rewriting)
+    handle /api/* {
+        # Remove /api prefix before forwarding to backend
+        uri strip_prefix /api
+        reverse_proxy go-service:8080 {
+            # Forward real client IP
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Reverse proxy for frontend (all other requests)
+    handle {
+        reverse_proxy frontend:3000 {
+            # Forward real client IP
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Security headers
+    header {
+        # Enable HSTS (HTTP Strict Transport Security)
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+        # Remove server header for security
+        -Server
+    }
+}
+
+# Optional: Redirect www to non-www (uncomment if needed)
+# www.example.com {
+#     redir https://example.com{uri} permanent
+# }
+
+# Advanced Configuration Examples (commented out by default):
+
+# Example 1: Using custom SSL certificates (e.g., Cloudflare Origin CA)
+# Uncomment and modify if you want to use your own certificates instead of Let's Encrypt
+# example.com {
+#     tls /etc/caddy/certs/cloudflare.pem /etc/caddy/certs/cloudflare.key
+#
+#     # ... (same configuration as above)
+# }
+
+# Example 2: Using Cloudflare DNS for automatic HTTPS (supports wildcard certificates)
+# Requires: Caddy with Cloudflare DNS plugin
+# Uncomment and add your Cloudflare API token
+# example.com {
+#     tls {
+#         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+#     }
+#
+#     # ... (same configuration as above)
+# }
+
+# Example 3: Multiple domains
+# example.com, www.example.com, another-domain.com {
+#     # ... (same configuration)
+# }
