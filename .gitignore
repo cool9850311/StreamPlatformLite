@@ -1,5 +1,6 @@
 docker-compose.yml
 nginx.conf
+Caddyfile
 *.crt
 *.key
 *.pem

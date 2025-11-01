@@ -1,0 +1,105 @@
+# Docker Compose with Caddy (Recommended)
+# This configuration uses Caddy for automatic HTTPS with Let's Encrypt
+# No manual certificate management required!
+
+version: '3.1'
+
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:latest
+    restart: always
+
+  go-service:
+    build:
+      context: ../StreamPlatformLite-Backend
+      dockerfile: ../StreamPlatformLite-Backend/Dockerfile
+    restart: always
+    ports:
+      # Only expose RTMP port for streaming
+      # HTTP API (8080) is only accessible through Caddy for better security
+      - 1935:1935
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      SERVER_PORT: 8080
+      MONGODB_URI: mongodb://root:example@mongo:27017
+      MONGODB_DATABASE: go_service
+      APP_SECRET_KEY: YOUR_SECRET_KEY
+      DISCORD_CLIENT_ID: YOUR_CLIENT_ID
+      DISCORD_CLIENT_SECRET: YOUR_CLIENT_SECRET
+      DISCORD_ADMIN_ID: YOUR_ADMIN_ID
+      DISCORD_GUILD_ID: YOUR_GUILD_ID
+      DOMAIN: example.com/api
+      FRONTEND_DOMAIN: example.com
+      FRONTEND_PORT: 3000
+      REDIS_URI: redis:6379
+      HTTPS: "true"
+      ENABLE_GIN_LOG: "false"
+    volumes:
+      - hls-data:/app/hls
+
+  frontend:
+    build:
+      context: ../StreamPlatformLite-Frontend
+      dockerfile: ../StreamPlatformLite-Frontend/Dockerfile
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - NUXT_PUBLIC_BACKEND_URL=https://example.com/api
+      - NUXT_PUBLIC_DISCORD_URL=YOUR_DISCORD_URL
+
+  caddy:
+    image: caddy:latest
+    restart: always
+    ports:
+      - "80:80"    # HTTP (auto redirects to HTTPS)
+      - "443:443"  # HTTPS
+      - "443:443/udp"  # HTTP/3 (QUIC)
+    volumes:
+      # Mount Caddyfile configuration
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      # Persist SSL certificates and Caddy data
+      - caddy_data:/data
+      - caddy_config:/config
+      # Optional: Mount custom certificates directory (for advanced users)
+      # Uncomment if you want to use custom certificates like Cloudflare Origin CA
+      # - ./certs:/etc/caddy/certs:ro
+    depends_on:
+      - go-service
+      - frontend
+    environment:
+      # Optional: Set email for Let's Encrypt notifications
+      # Uncomment and set your email
+      # - ACME_EMAIL=your-email@example.com
+
+      # Optional: Cloudflare API token for DNS challenge (advanced)
+      # Uncomment if using Cloudflare DNS plugin
+      # - CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+
+volumes:
+  mongo-data:
+  hls-data:
+  # Caddy volumes for persistent certificate storage
+  caddy_data:
+    # Stores SSL certificates from Let's Encrypt
+  caddy_config:
+    # Stores Caddy configuration cache
+
+# Notes:
+# 1. Replace 'example.com' in Caddyfile with your actual domain
+# 2. Ensure your domain's DNS A record points to your server's IP address
+# 3. Ensure ports 80 and 443 are open in your firewall
+# 4. On first run, Caddy will automatically obtain SSL certificates (takes 1-2 minutes)
+# 5. Certificates are automatically renewed before expiration
+# 6. To use custom certificates, uncomment the certs volume mount and follow Caddyfile examples
