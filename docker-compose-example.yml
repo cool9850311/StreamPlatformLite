@@ -59,7 +59,6 @@ services:
       - NODE_ENV=production
       # Replace example.com with your actual domain
       - NUXT_PUBLIC_BACKEND_URL=https://example.com/api
-      - NUXT_PUBLIC_DISCORD_URL=YOUR_DISCORD_URL
 
   nginx:
     image: nginx:latest
