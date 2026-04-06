@@ -60,12 +60,16 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 |---------|-------|--------|------|-------|-----------|
 | Manage users and accounts | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Manage livestreams | ✓ | ✗ | ✗ | ✗ | ✗ |
-| Delete chat messages | ✓ | ✓ | ✗ | ✗ | ✗ |
-| Mute users | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Delete chat messages | ✓ | ✓* | ✓** | ✗ | ✗ |
+| Mute users | ✓ | ✓* | ✗ | ✗ | ✗ |
 | Watch member-only streams | ✓ | ✓ | ✓ | ✗ | ✗ |
 | Send chat messages | ✓ | ✓ | ✓ | ✓ | ✗ |
 | Watch public streams | ✓ | ✓ | ✓ | ✓ | ✓ |
 | View chat messages | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+*Editor can only moderate User/Guest messages, not Admin/Editor messages
+
+**Users can delete their own messages only
 
 ### Admin Dashboard
 
