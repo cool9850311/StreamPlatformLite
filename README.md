@@ -237,6 +237,54 @@ StreamPlatformLite supports two deployment methods. **Caddy is recommended** for
     docker-compose up -d --build
     ```
 
+### Local HTTPS Testing
+
+Test the full production stack (with HTTPS, strict CSP, security headers) on your local machine using [mkcert](https://github.com/FiloSottile/mkcert) and the `localtest.me` domain (automatically resolves to `127.0.0.1` via public DNS — no `/etc/hosts` needed).
+
+**Prerequisites:**
+- Docker & Docker Compose
+- [mkcert](https://github.com/FiloSottile/mkcert): `brew install mkcert`
+
+**Setup:**
+
+1. Generate a locally-trusted certificate:
+    ```sh
+    mkdir -p local/certs
+    mkcert -cert-file local/certs/cert.pem -key-file local/certs/key.pem localtest.me localhost 127.0.0.1
+    ```
+
+2. Copy the example config files:
+    ```sh
+    # Choose Caddy (recommended) or Nginx
+    cp local/docker-compose.caddy.example.yml local/docker-compose.caddy.yml
+    cp local/Caddyfile.example local/Caddyfile
+
+    # Or for Nginx:
+    cp local/docker-compose.nginx.example.yml local/docker-compose.nginx.yml
+    cp local/nginx.example.conf local/nginx.conf
+    ```
+
+3. Fill in your credentials in `local/docker-compose.caddy.yml` (or `local/docker-compose.nginx.yml`):
+    - `APP_SECRET_KEY`
+    - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_ADMIN_ID` / `DISCORD_GUILD_ID`
+
+4. In the Discord Developer Portal, add `https://localtest.me/api/oauth/discord/callback` as a redirect URL.
+
+5. Start the stack:
+    ```sh
+    # Caddy
+    docker compose -f local/docker-compose.caddy.yml up --build -d
+
+    # Or Nginx
+    docker compose -f local/docker-compose.nginx.yml up --build -d
+    ```
+
+6. Access at **https://localtest.me**
+
+**Notes:**
+- RTMP push URL: `rtmp://localtest.me:1935/live/<stream-key>`
+- Files inside `local/` that contain credentials (`docker-compose.caddy.yml`, `docker-compose.nginx.yml`, `Caddyfile`, `nginx.conf`) are gitignored
+
 ### Stopping the Application
 
 To stop the services (works for both Caddy and Nginx):
