@@ -1,0 +1,68 @@
+# Caddyfile for Local HTTPS Development
+# Uses mkcert certificates instead of Let's Encrypt
+# Domain: localtest.me (resolves to 127.0.0.1 via DNS automatically - no /etc/hosts needed)
+
+# Global options
+{
+	# Disable admin API for local testing
+	admin off
+}
+
+# Security headers snippet (identical to production)
+(security_headers) {
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+		-X-Powered-By
+	}
+}
+
+localtest.me {
+	# Use mkcert-generated certificate
+	tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem
+
+	# Enable compression
+	encode gzip zstd
+
+	# API routes
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy go-service:8080 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+
+			# Remove upstream static headers, preserve CSP (backend has API CSP)
+			header_down -X-Frame-Options
+			header_down -X-Content-Type-Options
+			header_down -X-XSS-Protection
+			header_down -Referrer-Policy
+			header_down -Permissions-Policy
+			header_down -Strict-Transport-Security
+		}
+		import security_headers
+	}
+
+	# Frontend routes
+	handle {
+		reverse_proxy frontend:3000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+
+			# Remove upstream static headers, preserve CSP (frontend has dynamic nonce CSP)
+			header_down -X-Frame-Options
+			header_down -X-Content-Type-Options
+			header_down -X-XSS-Protection
+			header_down -Referrer-Policy
+			header_down -Permissions-Policy
+			header_down -Strict-Transport-Security
+		}
+		import security_headers
+	}
+}

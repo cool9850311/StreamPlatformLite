@@ -1,6 +1,12 @@
 docker-compose.yml
 nginx.conf
 Caddyfile
+local/docker-compose.caddy.yml
+local/docker-compose.nginx.yml
+local/Caddyfile
+local/nginx.conf
+local/certs/*
+!local/certs/.gitkeep
 *.crt
 *.key
 *.pem

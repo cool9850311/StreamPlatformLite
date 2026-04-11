@@ -1,0 +1,105 @@
+# Docker Compose for Local HTTPS Development with Caddy
+# Based on docker-compose-caddy.yml, adapted for local HTTPS testing with mkcert
+# Domain: localtest.me (resolves to 127.0.0.1 via public DNS - no /etc/hosts needed)
+#
+# Prerequisites:
+#   1. Install mkcert: brew install mkcert
+#   2. Generate certs:
+#      mkdir -p local/certs
+#      mkcert -cert-file local/certs/cert.pem -key-file local/certs/key.pem localtest.me localhost 127.0.0.1
+#   3. Run: docker compose -f local/docker-compose.caddy.yml up --build
+
+version: '3.1'
+
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:latest
+    restart: always
+
+  go-service:
+    build:
+      context: ../../StreamPlatformLite-Backend
+    restart: always
+    ports:
+      # Only expose RTMP port for streaming
+      # HTTP API (8080) is only accessible through Caddy for better security
+      - 1935:1935
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      SERVER_PORT: 8080
+      MONGODB_URI: mongodb://root:example@mongo:27017
+      MONGODB_DATABASE: go_service
+      APP_SECRET_KEY: YOUR_SECRET_KEY
+      DISCORD_CLIENT_ID: YOUR_CLIENT_ID
+      DISCORD_CLIENT_SECRET: YOUR_CLIENT_SECRET
+      DISCORD_ADMIN_ID: YOUR_ADMIN_ID
+      DISCORD_GUILD_ID: YOUR_GUILD_ID
+      DOMAIN: localtest.me/api
+      FRONTEND_DOMAIN: localtest.me
+      REDIS_URI: redis:6379
+      HTTPS: "true"
+      ENABLE_GIN_LOG: "false"
+      LOG_LEVEL: "INFO"
+      # Rate limiting configuration (defaults shown)
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_LOGIN_PER_MINUTE: "5"
+      RATE_LIMIT_OAUTH_INIT_PER_MINUTE: "5"
+      RATE_LIMIT_LOGOUT_PER_MINUTE: "10"
+      RATE_LIMIT_CHAT_POST_PER_MINUTE: "10"
+      RATE_LIMIT_CHAT_DELETE_PER_MINUTE: "10"
+      RATE_LIMIT_CHANGE_PASSWORD_PER_HOUR: "10"
+    volumes:
+      - hls-data:/app/hls
+
+  frontend:
+    build:
+      context: ../../StreamPlatformLite-Frontend
+      args:
+        # ENABLE_STRICT_CSP is a build-time arg (baked into nuxt.config.ts during npm run build)
+        ENABLE_STRICT_CSP: "true"
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - NUXT_PUBLIC_BACKEND_URL=https://localtest.me/api
+
+  caddy:
+    image: caddy:latest
+    restart: always
+    ports:
+      - "80:80"       # HTTP (auto redirects to HTTPS)
+      - "443:443"     # HTTPS
+      - "443:443/udp" # HTTP/3 (QUIC)
+    volumes:
+      # Mount local Caddyfile configuration (uses mkcert certs instead of Let's Encrypt)
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      # Mount mkcert-generated certificates (replaces caddy_data/caddy_config used in production)
+      - ./certs:/etc/caddy/certs:ro
+    depends_on:
+      - go-service
+      - frontend
+    extra_hosts:
+      # Allow Caddy container to resolve localtest.me back to the host
+      - "localtest.me:host-gateway"
+
+volumes:
+  mongo-data:
+  hls-data:
+  # Note: caddy_data and caddy_config are not needed here
+  # mkcert certificates are mounted directly instead of using Let's Encrypt
+
+# Notes:
+# 1. Copy this file to docker-compose.caddy.yml and fill in YOUR_* placeholders
+# 2. localtest.me automatically resolves to 127.0.0.1 via public DNS - no /etc/hosts required
+# 3. mkcert certificates are mounted read-only; regenerate with mkcert if expired

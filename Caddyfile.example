@@ -1,6 +1,28 @@
 # Caddyfile Example for StreamPlatformLite
 # Copy this file to 'Caddyfile' and replace 'example.com' with your actual domain
 
+# Global options
+{
+    # Disable admin API — in Docker, all containers share the same internal network,
+    # so the default localhost:2019 admin endpoint is reachable from other containers.
+    # Only enable if you need dynamic config reloads, and restrict access accordingly.
+    admin off
+}
+
+# Security headers snippet — applied to every response via 'import security_headers'
+(security_headers) {
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+        -X-Powered-By
+    }
+}
+
 # Replace 'example.com' with your domain name
 example.com {
     # Automatically obtain and renew SSL certificates from Let's Encrypt
@@ -24,7 +46,17 @@ example.com {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
+
+            # Strip upstream static headers to prevent duplicates
+            # Content-Security-Policy is intentionally preserved (backend has API CSP)
+            header_down -X-Frame-Options
+            header_down -X-Content-Type-Options
+            header_down -X-XSS-Protection
+            header_down -Referrer-Policy
+            header_down -Permissions-Policy
+            header_down -Strict-Transport-Security
         }
+        import security_headers
     }
 
     # Reverse proxy for frontend (all other requests)
@@ -34,19 +66,17 @@ example.com {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
-        }
-    }
 
-    # Security headers
-    header {
-        # Enable HSTS (HTTP Strict Transport Security)
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        # Prevent clickjacking
-        X-Frame-Options "SAMEORIGIN"
-        # Prevent MIME type sniffing
-        X-Content-Type-Options "nosniff"
-        # Remove server header for security
-        -Server
+            # Strip upstream static headers to prevent duplicates
+            # Content-Security-Policy is intentionally preserved (frontend has dynamic nonce CSP)
+            header_down -X-Frame-Options
+            header_down -X-Content-Type-Options
+            header_down -X-XSS-Protection
+            header_down -Referrer-Policy
+            header_down -Permissions-Policy
+            header_down -Strict-Transport-Security
+        }
+        import security_headers
     }
 }
 
