@@ -2,7 +2,16 @@
 # This configuration uses Caddy for automatic HTTPS with Let's Encrypt
 # No manual certificate management required!
 
-version: '3.1'
+version: '3.8'
+
+networks:
+  public:
+    driver: bridge
+  internal:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true   # no outbound internet for data tier
 
 services:
 
@@ -14,10 +23,29 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: example
     volumes:
       - mongo-data:/data/db
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN]   # mongo entrypoint switches to mongodb user via gosu
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ping:1})"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 
   redis:
     image: redis:latest
     restart: always
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN, SETPCAP]   # redis entrypoint chowns /data, uses setpriv --bounding-set (needs SETPCAP), drops to redis user
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   go-service:
     build:
@@ -29,8 +57,10 @@ services:
       # HTTP API (8080) is only accessible through Caddy for better security
       - 1935:1935
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8080
       MONGODB_URI: mongodb://root:example@mongo:27017
@@ -56,6 +86,16 @@ services:
       RATE_LIMIT_CHANGE_PASSWORD_PER_HOUR: "10"
     volumes:
       - hls-data:/app/hls
+    networks: [internal, backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]   # entrypoint.sh chowns /app/hls then su-exec drops to appuser
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
   frontend:
     build:
@@ -68,6 +108,15 @@ services:
     environment:
       - NODE_ENV=production
       - NUXT_PUBLIC_BACKEND_URL=https://example.com/api
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 
   caddy:
     image: caddy:latest
@@ -86,8 +135,10 @@ services:
       # Uncomment if you want to use custom certificates like Cloudflare Origin CA
       # - ./certs:/etc/caddy/certs:ro
     depends_on:
-      - go-service
-      - frontend
+      go-service:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     # environment:
       # Optional: Set email for Let's Encrypt notifications
       # Uncomment and set your email
@@ -96,6 +147,16 @@ services:
       # Optional: Cloudflare API token for DNS challenge (advanced)
       # Uncomment if using Cloudflare DNS plugin
       # - CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+    networks: [public, internal]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
 volumes:
   mongo-data:
