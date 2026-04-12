@@ -26,7 +26,7 @@ services:
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    cap_add: [SETUID, SETGID, CHOWN]   # mongo entrypoint switches to mongodb user via gosu
+    cap_add: [SETUID, SETGID, CHOWN, DAC_READ_SEARCH]   # mongo entrypoint needs DAC_READ_SEARCH to find/traverse drwx------ data dirs before gosu switch
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.runCommand({ping:1})"]
       interval: 30s
