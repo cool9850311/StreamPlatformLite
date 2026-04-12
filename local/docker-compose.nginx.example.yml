@@ -135,6 +135,7 @@ services:
       # Security headers configurations
       - ../security-headers.conf:/etc/nginx/conf.d/security-headers.conf
       - ../security-headers-proxy.conf:/etc/nginx/conf.d/security-headers-proxy.conf
+      - ../security-headers-frontend.conf:/etc/nginx/conf.d/security-headers-frontend.conf
       # Mount mkcert-generated certificates
       - ./certs:/etc/nginx/certs:ro
     depends_on:

@@ -67,15 +67,23 @@ example.com {
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
 
-            # Strip upstream static headers to prevent duplicates
-            # Content-Security-Policy is intentionally preserved (frontend has dynamic nonce CSP)
+            # Strip all upstream security headers; Caddy is the single source of truth
             header_down -X-Frame-Options
             header_down -X-Content-Type-Options
             header_down -X-XSS-Protection
             header_down -Referrer-Policy
             header_down -Permissions-Policy
             header_down -Strict-Transport-Security
+            header_down -Content-Security-Policy
         }
+        # SPA CSP:
+        #   script-src 'unsafe-inline'  — pre-built SPA has no per-request nonce
+        #   blob:                        — HLS.js Web Worker + MSE video segments
+        #   style-src 'unsafe-inline'   — runtime CSS injection (headlessui, plyr, etc.)
+        #   style-src-attr 'none'       — blocks CSS if()-based exfiltration (PortSwigger 2025)
+        #   img-src cdn.discordapp.com  — Discord user avatars
+        #   media-src blob:             — HLS video segments
+        header Content-Security-Policy "default-src 'self'; script-src 'self' blob: 'unsafe-inline'; style-src 'self' 'unsafe-inline'; style-src-attr 'none'; img-src 'self' https://cdn.discordapp.com data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
         import security_headers
     }
 }
