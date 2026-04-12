@@ -131,6 +131,7 @@ services:
       # Security headers configurations (shared between prod and local)
       - ./security-headers.conf:/etc/nginx/conf.d/security-headers.conf
       - ./security-headers-proxy.conf:/etc/nginx/conf.d/security-headers-proxy.conf
+      - ./security-headers-frontend.conf:/etc/nginx/conf.d/security-headers-frontend.conf
       # Mount SSL certificates directory (place your .crt and .key files here)
       - ./certs:/etc/nginx/certs
     depends_on:
