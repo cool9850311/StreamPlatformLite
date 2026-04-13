@@ -55,6 +55,23 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 - **Discord OAuth 2.0** - Seamless login with Discord account
 - **Native Accounts** - Username/password authentication for system administrators
 
+**Discord Guild Role → Platform Role Mapping**
+
+Platform roles are assigned automatically at login based on the user's roles in your Discord server. No manual role assignment needed.
+
+| Discord Side | Platform Role | How It's Configured |
+|---|---|---|
+| Specific Discord User ID | Admin | `DISCORD_ADMIN_ID` env var |
+| Discord Role ID | Editor | System Settings → Editor Role |
+| Discord Role ID(s) | User | System Settings → Stream Access Roles (multiple allowed) |
+| In guild but no matching role | Guest | — (fallback) |
+| Not in guild | Login denied | Discord API returns non-200; login fails |
+
+The OAuth flow requests `guilds.members.read` scope to read the user's server roles on every login, so role changes in Discord take effect on next login automatically.
+
+> **Multi-platform membership sync via Discord**
+> Discord supports native integrations with Twitch, YouTube, and other streaming platforms that automatically grant server roles to subscribers/members. By mapping those roles to platform roles here, StreamPlatformLite indirectly inherits membership state from multiple platforms — e.g. Twitch subscribers or YouTube channel members automatically gain User access without any additional integration work.
+
 **Role-Based Access Control:**
 | Feature | Admin | Editor | User | Guest | Anonymous |
 |---------|-------|--------|------|-------|-----------|
@@ -91,9 +108,9 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 - View all registered users and their details
 
 **System Settings:**
-- Configure Discord role mapping
-- Set stream access permissions
-- Customize platform behavior
+- Map Discord Role IDs to platform roles (Editor, User/Stream Access)
+- Admin is designated by Discord User ID via environment variable
+- Changes apply on the user's next Discord login — no manual sync needed
 
 ### Internationalization & Responsive Design
 
@@ -110,11 +127,15 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 ### Security & Performance
 
 **Security Features:**
-- CSRF protection with OAuth state validation
-- HTTP-only cookies to prevent XSS attacks
+- Double-submit CSRF protection (HMAC token via `X-XSRF-TOKEN` header)
+- HttpOnly cookies for JWT and anonymous viewer tokens
 - Bcrypt password encryption (10 rounds)
 - JWT-based authentication with role verification
 - CORS configuration for secure cross-origin requests
+- Security headers on all responses: CSP, `X-Frame-Options`, `X-Content-Type-Options`, HSTS, `Referrer-Policy`, `Permissions-Policy`
+- Redis-based rate limiting on all sensitive endpoints (IP and user-based)
+- Path traversal prevention on HLS file access
+- Non-root containers with minimal Linux capabilities (`cap_drop: ALL`)
 
 **Performance Optimizations:**
 - Redis caching for chat messages and viewer counts
@@ -125,16 +146,15 @@ Stream Platform Lite is a platform that allows any streamer to easily create the
 ### Technical Highlights
 
 **Frontend Stack:**
-- Nuxt 3 + Vue 3 (Composition API)
+- Nuxt 4 + Vue 3 (Composition API)
 - TypeScript for type safety
 - Plyr + HLS.js for professional video playback
-- Axios for API communication
 - SweetAlert2 for beautiful notifications
 
 **Backend Stack:**
-- Go 1.22+ with Gin framework
+- Go 1.26+ with Gin framework
 - MongoDB for data persistence
-- Redis for high-speed caching
+- Redis for high-speed caching and rate limiting
 - FFmpeg for video transcoding
 - JWT for secure authentication
 
