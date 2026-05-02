@@ -153,7 +153,7 @@ The OAuth flow requests `guilds.members.read` scope to read the user's server ro
 
 **Backend Stack:**
 - Go 1.26+ with Gin framework
-- MongoDB for data persistence
+- PostgreSQL for data persistence
 - Redis for high-speed caching and rate limiting
 - FFmpeg for video transcoding
 - JWT for secure authentication
