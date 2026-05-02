@@ -15,24 +15,24 @@ networks:
 
 services:
 
-  mongo:
-    image: mongo
+  postgres:
+    image: postgres:16-alpine
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: go_service
     volumes:
-      - mongo-data:/data/db
+      - pg-data:/var/lib/postgresql/data
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    cap_add: [SETUID, SETGID, CHOWN, DAC_READ_SEARCH]   # mongo entrypoint needs DAC_READ_SEARCH to find/traverse drwx------ data dirs before gosu switch
+    cap_add: [SETUID, SETGID, CHOWN]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.runCommand({ping:1})"]
-      interval: 30s
+      test: ["CMD-SHELL", "pg_isready -U root -d go_service"]
+      interval: 5s
       timeout: 5s
-      start_period: 15s
-      retries: 3
+      retries: 5
 
   redis:
     image: redis:latest
@@ -56,14 +56,11 @@ services:
       # HTTP API (8080) is only accessible through Nginx for better security
       - 1935:1935
     depends_on:
-      mongo:
-        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
       SERVER_PORT: 8080
-      MONGODB_URI: mongodb://root:example@mongo:27017
-      MONGODB_DATABASE: go_service
+      POSTGRESQL_DSN: ${POSTGRESQL_DSN}
       # IMPORTANT: Replace all YOUR_* placeholders with actual values
       APP_SECRET_KEY: YOUR_SECRET_KEY
       DISCORD_CLIENT_ID: YOUR_CLIENT_ID
@@ -77,6 +74,7 @@ services:
       HTTPS: "true"
       ENABLE_GIN_LOG: "false"
       LOG_LEVEL: "INFO"
+      SCHEMA_AUTO_MIGRATE: "true"
       # Rate limiting configuration (defaults shown)
       RATE_LIMIT_ENABLED: "true"
       RATE_LIMIT_LOGIN_PER_MINUTE: "5"
@@ -151,7 +149,7 @@ services:
       retries: 3
 
 volumes:
-  # MongoDB persistent data storage
-  mongo-data:
+  # PostgreSQL persistent data storage
+  pg-data:
   # HLS streaming data storage (for live streaming)
   hls-data:
