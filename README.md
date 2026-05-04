@@ -153,10 +153,14 @@ The OAuth flow requests `guilds.members.read` scope to read the user's server ro
 
 **Backend Stack:**
 - Go 1.26+ with Gin framework
-- PostgreSQL for data persistence
+- PostgreSQL (split per service: `go_service` for streams, `auth_db` for accounts/auth)
 - Redis for high-speed caching and rate limiting
 - FFmpeg for video transcoding
 - JWT for secure authentication
+
+**Services:**
+- `go-service` — livestream management, chat, HLS delivery
+- `core-service` — authentication, account management, Discord OAuth
 
 **Infrastructure:**
 - Docker + Docker Compose for easy deployment
@@ -184,11 +188,12 @@ StreamPlatformLite supports two deployment methods. **Caddy is recommended** for
 
 **Setup:**
 
-1. Clone the repositories:
+1. Clone the repositories (all four must be siblings in the same parent directory):
     ```sh
     git clone https://github.com/cool9850311/StreamPlatformLite.git
     git clone https://github.com/cool9850311/StreamPlatformLite-Frontend.git
     git clone https://github.com/cool9850311/StreamPlatformLite-Backend.git
+    git clone https://github.com/cool9850311/StreamPlatformLite-Core.git
     ```
 
 2. Navigate to the project directory:
@@ -205,8 +210,9 @@ StreamPlatformLite supports two deployment methods. **Caddy is recommended** for
 4. Edit `Caddyfile` and replace `example.com` with your actual domain name.
 
 5. Update the environment variables in `docker-compose.yml`:
-    - Replace `example.com` with your domain in `DOMAIN` and `FRONTEND_DOMAIN`
-    - Update other environment variables as needed
+    - Replace `example.com/api` (go-service `DOMAIN`) and `example.com` (other fields) with your domain
+    - Replace `example.com/auth` (core-service `DOMAIN`) with `yourdomain.com/auth`
+    - Fill in Discord credentials (`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_ADMIN_ID`, `DISCORD_GUILD_ID`)
     - (See [Configuration - docker-compose](https://github.com/cool9850311/StreamPlatformLite/wiki/Configuration-%E2%80%90-docker-compose))
 
 6. Start the services:
@@ -230,11 +236,12 @@ StreamPlatformLite supports two deployment methods. **Caddy is recommended** for
 
 **Setup:**
 
-1. Clone the repositories:
+1. Clone the repositories (all four must be siblings in the same parent directory):
     ```sh
     git clone https://github.com/cool9850311/StreamPlatformLite.git
     git clone https://github.com/cool9850311/StreamPlatformLite-Frontend.git
     git clone https://github.com/cool9850311/StreamPlatformLite-Backend.git
+    git clone https://github.com/cool9850311/StreamPlatformLite-Core.git
     ```
 
 2. Navigate to the project directory:
@@ -288,7 +295,7 @@ Test the full production stack (with HTTPS, strict CSP, security headers) on you
     - `APP_SECRET_KEY`
     - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_ADMIN_ID` / `DISCORD_GUILD_ID`
 
-4. In the Discord Developer Portal, add `https://localtest.me/api/oauth/discord/callback` as a redirect URL.
+4. In the Discord Developer Portal, add `https://localtest.me/auth/oauth/discord` as a redirect URL.
 
 5. Start the stack:
     ```sh
@@ -302,7 +309,7 @@ Test the full production stack (with HTTPS, strict CSP, security headers) on you
 6. Access at **https://localtest.me**
 
 **Notes:**
-- RTMP push URL: `rtmp://localtest.me:1935/live/<stream-key>`
+- RTMP push URL is shown in the admin dashboard after creating a stream
 - Files inside `local/` that contain credentials (`docker-compose.caddy.yml`, `docker-compose.nginx.yml`, `Caddyfile`, `nginx.conf`) are gitignored
 
 ### Stopping the Application
@@ -319,3 +326,6 @@ For more detailed information, refer to the individual repository links provided
 
 ## Backend
 [link](https://github.com/cool9850311/StreamPlatformLite-Backend)
+
+## Core (Auth Service)
+[link](https://github.com/cool9850311/StreamPlatformLite-Core)
