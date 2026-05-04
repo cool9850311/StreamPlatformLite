@@ -22,29 +22,50 @@ networks:
 
 services:
 
-  mongo:
-    image: mongo
+  postgres-go:
+    image: postgres:16-alpine
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: go_service
     volumes:
-      - mongo-data:/data/db
+      - pg-go-data:/var/lib/postgresql/data
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    cap_add: [SETUID, SETGID, CHOWN, DAC_READ_SEARCH]   # mongo entrypoint needs DAC_READ_SEARCH to find/traverse drwx------ data dirs before gosu switch
+    cap_add: [SETUID, SETGID, CHOWN, FOWNER, DAC_OVERRIDE]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.runCommand({ping:1})"]
-      interval: 30s
+      test: ["CMD-SHELL", "pg_isready -U root -d go_service"]
+      interval: 5s
       timeout: 5s
-      start_period: 15s
-      retries: 3
+      retries: 5
+
+  postgres-core:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: auth_db
+    volumes:
+      - pg-core-data:/var/lib/postgresql/data
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN, FOWNER, DAC_OVERRIDE]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:latest
     restart: always
-    networks: [backend]
+    ports:
+      - "6380:6379"  # Exposed for local E2E test setup (rate-limit-setup.ts); not in prod compose
+    networks: [internal, backend]  # internal needed for host port-binding (internal: true blocks publishing)
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     cap_add: [SETUID, SETGID, CHOWN, SETPCAP]   # redis entrypoint chowns /data, uses setpriv --bounding-set (needs SETPCAP), drops to redis user
@@ -56,40 +77,33 @@ services:
 
   go-service:
     build:
-      context: ../../StreamPlatformLite-Backend
+      context: ../..
+      dockerfile: StreamPlatformLite-Backend/Dockerfile
     restart: always
     ports:
       # Only expose RTMP port for streaming
       # HTTP API (8080) is only accessible through Caddy for better security
       - 1935:1935
     depends_on:
-      mongo:
+      postgres-go:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
       SERVER_PORT: 8080
-      MONGODB_URI: mongodb://root:example@mongo:27017
-      MONGODB_DATABASE: go_service
+      POSTGRESQL_DSN: postgres://root:example@postgres-go:5432/go_service?sslmode=disable
       APP_SECRET_KEY: YOUR_SECRET_KEY
-      DISCORD_CLIENT_ID: YOUR_CLIENT_ID
-      DISCORD_CLIENT_SECRET: YOUR_CLIENT_SECRET
-      DISCORD_ADMIN_ID: YOUR_ADMIN_ID
-      DISCORD_GUILD_ID: YOUR_GUILD_ID
-      DOMAIN: localtest.me/api
+      DOMAIN: localtest.me
       FRONTEND_DOMAIN: localtest.me
       REDIS_URI: redis:6379
       HTTPS: "true"
       ENABLE_GIN_LOG: "false"
       LOG_LEVEL: "INFO"
+      SCHEMA_AUTO_MIGRATE: "true"
       # Rate limiting configuration (defaults shown)
       RATE_LIMIT_ENABLED: "true"
-      RATE_LIMIT_LOGIN_PER_MINUTE: "5"
-      RATE_LIMIT_OAUTH_INIT_PER_MINUTE: "5"
-      RATE_LIMIT_LOGOUT_PER_MINUTE: "10"
       RATE_LIMIT_CHAT_POST_PER_MINUTE: "10"
       RATE_LIMIT_CHAT_DELETE_PER_MINUTE: "10"
-      RATE_LIMIT_CHANGE_PASSWORD_PER_HOUR: "10"
     volumes:
       - hls-data:/app/hls
     networks: [internal, backend]
@@ -98,6 +112,46 @@ services:
     cap_add: [CHOWN, SETUID, SETGID]   # entrypoint.sh chowns /app/hls then su-exec drops to appuser
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  core-service:
+    build:
+      context: ../../StreamPlatformLite-Core
+    restart: always
+    depends_on:
+      postgres-core:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8081
+      POSTGRESQL_DSN: postgres://root:example@postgres-core:5432/auth_db?sslmode=disable
+      APP_SECRET_KEY: YOUR_SECRET_KEY
+      DISCORD_CLIENT_ID: YOUR_CLIENT_ID
+      DISCORD_CLIENT_SECRET: YOUR_CLIENT_SECRET
+      DISCORD_ADMIN_ID: YOUR_ADMIN_ID
+      DISCORD_GUILD_ID: YOUR_GUILD_ID
+      DOMAIN: localtest.me/auth
+      FRONTEND_DOMAIN: localtest.me
+      REDIS_URI: redis:6379
+      HTTPS: "true"
+      ENABLE_GIN_LOG: "false"
+      LOG_LEVEL: "INFO"
+      SCHEMA_AUTO_MIGRATE: "true"
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_LOGIN_PER_MINUTE: "5"
+      RATE_LIMIT_OAUTH_INIT_PER_MINUTE: "5"
+      RATE_LIMIT_LOGOUT_PER_MINUTE: "10"
+      RATE_LIMIT_CHANGE_PASSWORD_PER_HOUR: "10"
+    networks: [internal, backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -113,6 +167,7 @@ services:
     environment:
       - NODE_ENV=production
       - NUXT_PUBLIC_BACKEND_URL=https://localtest.me/api
+      - NUXT_PUBLIC_AUTH_URL=https://localtest.me/auth
     networks: [internal]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
@@ -138,6 +193,8 @@ services:
     depends_on:
       go-service:
         condition: service_healthy
+      core-service:
+        condition: service_healthy
       frontend:
         condition: service_healthy
     extra_hosts:
@@ -155,7 +212,8 @@ services:
       retries: 3
 
 volumes:
-  mongo-data:
+  pg-go-data:
+  pg-core-data:
   hls-data:
   # Note: caddy_data and caddy_config are not needed here
   # mkcert certificates are mounted directly instead of using Let's Encrypt
