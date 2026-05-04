@@ -84,7 +84,7 @@ services:
       SERVER_PORT: 8080
       POSTGRESQL_DSN: postgres://root:YOUR_PASSWORD@postgres-go:5432/go_service?sslmode=disable
       APP_SECRET_KEY: YOUR_SECRET_KEY
-      DOMAIN: example.com
+      DOMAIN: example.com/api
       FRONTEND_DOMAIN: example.com
       REDIS_URI: redis:6379
       HTTPS: "true"
