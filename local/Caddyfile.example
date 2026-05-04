@@ -29,6 +29,15 @@ localtest.me {
 	# Enable compression
 	encode gzip zstd
 
+	# Auth routes
+	handle /auth/* {
+		uri strip_prefix /auth
+		reverse_proxy core-service:8081 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+		import security_headers
+	}
+
 	# API routes
 	handle /api/* {
 		uri strip_prefix /api

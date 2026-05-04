@@ -15,21 +15,40 @@ networks:
 
 services:
 
-  postgres:
+  postgres-go:
     image: postgres:16-alpine
     restart: always
     environment:
       POSTGRES_USER: root
-      POSTGRES_PASSWORD: example
+      POSTGRES_PASSWORD: YOUR_PASSWORD
       POSTGRES_DB: go_service
     volumes:
-      - pg-data:/var/lib/postgresql/data
+      - pg-go-data:/var/lib/postgresql/data
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    cap_add: [SETUID, SETGID, CHOWN, FOWNER, DAC_OVERRIDE]   # FOWNER+DAC_OVERRIDE needed for chmod on existing data volume (second restart)
+    cap_add: [SETUID, SETGID, CHOWN, FOWNER, DAC_OVERRIDE]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U root -d go_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-core:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: YOUR_PASSWORD
+      POSTGRES_DB: auth_db
+    volumes:
+      - pg-core-data:/var/lib/postgresql/data
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN, FOWNER, DAC_OVERRIDE]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d auth_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -49,25 +68,23 @@ services:
 
   go-service:
     build:
-      context: ../StreamPlatformLite-Backend
-      dockerfile: ../StreamPlatformLite-Backend/Dockerfile
+      context: ..
+      dockerfile: StreamPlatformLite-Backend/Dockerfile
     restart: always
     ports:
       # Only expose RTMP port for streaming
       # HTTP API (8080) is only accessible through Caddy for better security
       - 1935:1935
     depends_on:
+      postgres-go:
+        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
       SERVER_PORT: 8080
-      POSTGRESQL_DSN: ${POSTGRESQL_DSN}
+      POSTGRESQL_DSN: postgres://root:YOUR_PASSWORD@postgres-go:5432/go_service?sslmode=disable
       APP_SECRET_KEY: YOUR_SECRET_KEY
-      DISCORD_CLIENT_ID: YOUR_CLIENT_ID
-      DISCORD_CLIENT_SECRET: YOUR_CLIENT_SECRET
-      DISCORD_ADMIN_ID: YOUR_ADMIN_ID
-      DISCORD_GUILD_ID: YOUR_GUILD_ID
-      DOMAIN: example.com/api
+      DOMAIN: example.com
       FRONTEND_DOMAIN: example.com
       REDIS_URI: redis:6379
       HTTPS: "true"
@@ -76,12 +93,8 @@ services:
       SCHEMA_AUTO_MIGRATE: "true"
       # Rate limiting configuration (defaults shown)
       RATE_LIMIT_ENABLED: "true"
-      RATE_LIMIT_LOGIN_PER_MINUTE: "5"
-      RATE_LIMIT_OAUTH_INIT_PER_MINUTE: "5"
-      RATE_LIMIT_LOGOUT_PER_MINUTE: "10"
       RATE_LIMIT_CHAT_POST_PER_MINUTE: "10"
       RATE_LIMIT_CHAT_DELETE_PER_MINUTE: "10"
-      RATE_LIMIT_CHANGE_PASSWORD_PER_HOUR: "10"
     volumes:
       - hls-data:/app/hls
     networks: [internal, backend]
@@ -90,6 +103,46 @@ services:
     cap_add: [CHOWN, SETUID, SETGID]   # entrypoint.sh chowns /app/hls then su-exec drops to appuser
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  core-service:
+    build:
+      context: ../StreamPlatformLite-Core
+    restart: always
+    depends_on:
+      postgres-core:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8081
+      POSTGRESQL_DSN: postgres://root:YOUR_PASSWORD@postgres-core:5432/auth_db?sslmode=disable
+      APP_SECRET_KEY: YOUR_SECRET_KEY
+      DISCORD_CLIENT_ID: YOUR_CLIENT_ID
+      DISCORD_CLIENT_SECRET: YOUR_CLIENT_SECRET
+      DISCORD_ADMIN_ID: YOUR_ADMIN_ID
+      DISCORD_GUILD_ID: YOUR_GUILD_ID
+      DOMAIN: example.com/auth
+      FRONTEND_DOMAIN: example.com
+      REDIS_URI: redis:6379
+      HTTPS: "true"
+      ENABLE_GIN_LOG: "false"
+      LOG_LEVEL: "INFO"
+      SCHEMA_AUTO_MIGRATE: "true"
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_LOGIN_PER_MINUTE: "5"
+      RATE_LIMIT_OAUTH_INIT_PER_MINUTE: "5"
+      RATE_LIMIT_LOGOUT_PER_MINUTE: "10"
+      RATE_LIMIT_CHANGE_PASSWORD_PER_HOUR: "10"
+    networks: [internal, backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -106,6 +159,7 @@ services:
     environment:
       - NODE_ENV=production
       - NUXT_PUBLIC_BACKEND_URL=https://example.com/api
+      - NUXT_PUBLIC_AUTH_URL=https://example.com/auth
     networks: [internal]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
@@ -135,6 +189,8 @@ services:
     depends_on:
       go-service:
         condition: service_healthy
+      core-service:
+        condition: service_healthy
       frontend:
         condition: service_healthy
     # environment:
@@ -157,7 +213,8 @@ services:
       retries: 3
 
 volumes:
-  pg-data:
+  pg-go-data:
+  pg-core-data:
   hls-data:
   # Caddy volumes for persistent certificate storage
   caddy_data:

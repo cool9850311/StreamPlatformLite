@@ -16,6 +16,26 @@ http {
 
         include /etc/nginx/conf.d/security-headers.conf;
 
+        location /auth/ {
+            rewrite ^/auth(.*) $1 break;
+            proxy_pass http://core-service:8081;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            include /etc/nginx/conf.d/security-headers-proxy.conf;
+        }
+
+        location /api/ {
+            rewrite ^/api(.*) $1 break;
+            proxy_pass http://go-service:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            include /etc/nginx/conf.d/security-headers-proxy.conf;
+        }
+
         location / {
             proxy_pass http://frontend:3000;
             proxy_set_header Host $host;
@@ -24,16 +44,6 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
             include /etc/nginx/conf.d/security-headers-proxy.conf;
             include /etc/nginx/conf.d/security-headers-frontend.conf;
-        }
-
-        location /api {
-            rewrite ^/api(.*) $1 break;
-            proxy_pass http://go-service:8080;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            include /etc/nginx/conf.d/security-headers-proxy.conf;
         }
     }
 }
