@@ -1,3 +1,4 @@
+*.code-workspace
 docker-compose.yml
 nginx.conf
 Caddyfile

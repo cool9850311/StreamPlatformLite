@@ -94,6 +94,7 @@ services:
       POSTGRESQL_DSN: postgres://root:example@postgres-go:5432/go_service?sslmode=disable
       APP_SECRET_KEY: YOUR_SECRET_KEY
       DOMAIN: localtest.me/api
+      RTMP_HOST: localtest.me
       FRONTEND_DOMAIN: localtest.me
       REDIS_URI: redis:6379
       HTTPS: "true"
